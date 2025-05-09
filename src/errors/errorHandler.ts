@@ -1,16 +1,20 @@
-import { Request, Response, NextFunction } from 'express';
+import { Request, Response } from 'express';
+import HttpStatus from './HttpStatus';
 
 export default function errorHandler(
-  err: any,
+  err: unknown,
   req: Request,
   res: Response,
-  next: NextFunction,
 ) {
-  const { statusCode = 500, message } = err;
+  const { statusCode = HttpStatus.InternalServerError, message } = err as {
+    statusCode?: number;
+    message?: string;
+  };
 
   res.status(statusCode).send({
-    message: statusCode === 500
-      ? 'На сервере произошла ошибка'
-      : message,
+    message:
+      statusCode === HttpStatus.InternalServerError
+        ? 'На сервере произошла ошибка'
+        : message,
   });
 }

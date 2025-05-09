@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
+import mongoose from 'mongoose';
 import Card from '../models/card';
 import NotFoundError from '../errors/NotFoundError';
 import BadRequestError from '../errors/BadRequestError';
@@ -8,7 +9,7 @@ export const getCards = async (req: Request, res: Response, next: NextFunction) 
   try {
     const cards = await Card.find({});
     return res.send(cards);
-  } catch (err) {
+  } catch (err: unknown) {
     return next(err);
   }
 };
@@ -24,8 +25,8 @@ export const createCard = async (
     const owner = req.user?._id;
     const card = await Card.create({ name, link, owner });
     return res.status(201).send(card);
-  } catch (err: any) {
-    if (err.name === 'ValidationError') {
+  } catch (err: unknown) {
+    if (err instanceof mongoose.Error.ValidationError) {
       return next(new BadRequestError('Некорректные данные при создании карточки'));
     }
     return next(err);
@@ -43,8 +44,8 @@ export const deleteCard = async (req: Request, res: Response, next: NextFunction
     }
 
     return res.send({ message: 'Карточка удалена' });
-  } catch (err: any) {
-    if (err.name === 'CastError') {
+  } catch (err: unknown) {
+    if (err instanceof mongoose.Error.CastError) {
       return next(new BadRequestError('Некорректный id карточки'));
     }
     return next(err);
@@ -69,8 +70,8 @@ export const likeCard = async (
     }
 
     return res.send(card);
-  } catch (err: any) {
-    if (err.name === 'CastError') {
+  } catch (err: unknown) {
+    if (err instanceof mongoose.Error.CastError) {
       return next(new BadRequestError('Некорректный id карточки'));
     }
     return next(err);
@@ -95,8 +96,8 @@ export const dislikeCard = async (
     }
 
     return res.send(card);
-  } catch (err: any) {
-    if (err.name === 'CastError') {
+  } catch (err: unknown) {
+    if (err instanceof mongoose.Error.CastError) {
       return next(new BadRequestError('Некорректный id карточки'));
     }
     return next(err);
