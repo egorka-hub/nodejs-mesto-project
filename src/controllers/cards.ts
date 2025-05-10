@@ -3,6 +3,7 @@ import mongoose from 'mongoose';
 import Card from '../models/card';
 import NotFoundError from '../errors/NotFoundError';
 import BadRequestError from '../errors/BadRequestError';
+import ForbiddenError from '../errors/ForbiddenError';
 
 // возвращает все карточки
 export const getCards = async (req: Request, res: Response, next: NextFunction) => {
@@ -34,14 +35,24 @@ export const createCard = async (
 };
 
 // удаляет карточку по идентификатору
-export const deleteCard = async (req: Request, res: Response, next: NextFunction) => {
+export const deleteCard = async (
+  req: Request & { user?: { _id: string } },
+  res: Response,
+  next: NextFunction,
+) => {
   try {
     const { cardId } = req.params;
-    const card = await Card.findByIdAndDelete(cardId);
+    const card = await Card.findById(cardId);
 
     if (!card) {
       throw new NotFoundError('Карточка не найдена');
     }
+
+    if (card.owner.toString() !== req.user?._id) {
+      throw new ForbiddenError('Вы не можете удалить чужую карточку');
+    }
+
+    await card.deleteOne();
 
     return res.send({ message: 'Карточка удалена' });
   } catch (err: unknown) {

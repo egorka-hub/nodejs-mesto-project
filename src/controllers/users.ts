@@ -1,7 +1,16 @@
 import { Request, Response, NextFunction } from 'express';
+
+import bcrypt from 'bcrypt';
+import jwt from 'jsonwebtoken';
+
 import User from '../models/user';
+
 import NotFoundError from '../errors/NotFoundError';
 import BadRequestError from '../errors/BadRequestError';
+import UnauthorizedError from '../errors/UnauthorizedError';
+import ConflictError from '../errors/ConflictError';
+
+const { NODE_ENV, JWT_SECRET = 'dev-secret' } = process.env;
 
 // возвращает всех пользователей
 export const getUsers = async (req: Request, res: Response, next: NextFunction) => {
@@ -35,14 +44,61 @@ export const getUserById = async (req: Request, res: Response, next: NextFunctio
 // создаёт пользователя
 export const createUser = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { name, about, avatar } = req.body;
-    const user = await User.create({ name, about, avatar });
-    return res.status(201).send(user);
+    const {
+      name,
+      about,
+      avatar,
+      email,
+      password,
+    } = req.body;
+
+    const hash = await bcrypt.hash(password, 10);
+
+    const user = await User.create({
+      name,
+      about,
+      avatar,
+      email,
+      password: hash,
+    });
+
+    const userWithoutPassword = user.toObject();
+    delete userWithoutPassword.password;
+
+    return res.status(201).send(userWithoutPassword);
   } catch (err: any) {
+    if (err.code === 11000) {
+      return next(new ConflictError('Пользователь с таким email уже существует'));
+    }
     if (err.name === 'ValidationError') {
       return next(new BadRequestError('Некорректные данные при создании пользователя'));
     }
     return next(err);
+  }
+};
+
+// контроллер login
+export const login = async (req: Request, res: Response, next: NextFunction) => {
+  const { email, password } = req.body;
+
+  try {
+    const user = await User.findUserByCredentials(email, password);
+
+    const token = jwt.sign(
+      { _id: user._id },
+      NODE_ENV === 'production' ? JWT_SECRET : 'dev-secret',
+      { expiresIn: '7d' },
+    );
+
+    res
+      .cookie('jwt', token, {
+        httpOnly: true,
+        sameSite: 'strict',
+        maxAge: 7 * 24 * 60 * 60 * 1000, // неделя
+      })
+      .send({ message: 'Авторизация успешна' });
+  } catch (err) {
+    next(new UnauthorizedError('Неправильные почта или пароль'));
   }
 };
 

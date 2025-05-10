@@ -1,7 +1,12 @@
-import express, { Request, Response, NextFunction } from 'express';
+import express from 'express';
 import mongoose from 'mongoose';
+import cookieParser from 'cookie-parser';
 import routes from './routes';
 import errorHandler from './errors/errorHandler';
+import { login, createUser } from './controllers/users';
+import auth from './middlewares/auth';
+import { requestLogger, errorLogger } from './middlewares/logger';
+import { validateUserSignup, validateUserSignin } from './validators/users';
 
 const { PORT = 3000 } = process.env;
 
@@ -20,13 +25,17 @@ mongoose.connect('mongodb://localhost:27017/mestodb')
   });
 
 app.use(express.json());
+app.use(cookieParser());
 
-// временное решение авторизации
-app.use((req: Request & { user?: { _id: string } }, res: Response, next: NextFunction) => {
-  req.user = { _id: '681b53e3ab22535f7be39c98' };
-  next();
-});
+app.use(requestLogger);
+
+app.post('/signin', validateUserSignin, login);
+app.post('/signup', validateUserSignup, createUser);
+
+app.use(auth);
 
 app.use(routes);
+
+app.use(errorLogger);
 
 app.use(errorHandler);
