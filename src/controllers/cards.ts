@@ -4,6 +4,7 @@ import Card from '../models/card';
 import NotFoundError from '../errors/NotFoundError';
 import BadRequestError from '../errors/BadRequestError';
 import ForbiddenError from '../errors/ForbiddenError';
+import HttpStatus from '../errors/HttpStatus';
 
 // возвращает все карточки
 export const getCards = async (req: Request, res: Response, next: NextFunction) => {
@@ -25,7 +26,7 @@ export const createCard = async (
     const { name, link } = req.body;
     const owner = req.user?._id;
     const card = await Card.create({ name, link, owner });
-    return res.status(201).send(card);
+    return res.status(HttpStatus.Created).send(card);
   } catch (err: unknown) {
     if (err instanceof mongoose.Error.ValidationError) {
       return next(new BadRequestError('Некорректные данные при создании карточки'));

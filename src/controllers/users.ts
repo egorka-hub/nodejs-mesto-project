@@ -1,5 +1,4 @@
 import { Request, Response, NextFunction } from 'express';
-
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 
@@ -9,6 +8,7 @@ import NotFoundError from '../errors/NotFoundError';
 import BadRequestError from '../errors/BadRequestError';
 import UnauthorizedError from '../errors/UnauthorizedError';
 import ConflictError from '../errors/ConflictError';
+import HttpStatus from '../errors/HttpStatus';
 
 const { NODE_ENV, JWT_SECRET = 'dev-secret' } = process.env;
 
@@ -17,7 +17,7 @@ export const getUsers = async (req: Request, res: Response, next: NextFunction) 
   try {
     const users = await User.find({});
     return res.send(users);
-  } catch (err) {
+  } catch (err: unknown) {
     return next(err);
   }
 };
@@ -33,8 +33,8 @@ export const getUserById = async (req: Request, res: Response, next: NextFunctio
     }
 
     return res.send(user);
-  } catch (err: any) {
-    if (err.name === 'CastError') {
+  } catch (err: unknown) {
+    if (err instanceof Error && err.name === 'CastError') {
       return next(new BadRequestError('Некорректный id пользователя'));
     }
     return next(err);
@@ -65,14 +65,18 @@ export const createUser = async (req: Request, res: Response, next: NextFunction
     const userWithoutPassword = user.toObject();
     delete userWithoutPassword.password;
 
-    return res.status(201).send(userWithoutPassword);
-  } catch (err: any) {
-    if (err.code === 11000) {
+    return res.status(HttpStatus.Created).send(userWithoutPassword);
+  } catch (err: unknown) {
+    if (
+      typeof err === 'object' && err !== null && 'code' in err && (err as { code: number }).code === 11000
+    ) {
       return next(new ConflictError('Пользователь с таким email уже существует'));
     }
-    if (err.name === 'ValidationError') {
+
+    if (err instanceof Error && err.name === 'ValidationError') {
       return next(new BadRequestError('Некорректные данные при создании пользователя'));
     }
+
     return next(err);
   }
 };
@@ -94,10 +98,10 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
       .cookie('jwt', token, {
         httpOnly: true,
         sameSite: 'strict',
-        maxAge: 7 * 24 * 60 * 60 * 1000, // неделя
+        maxAge: 7 * 24 * 60 * 60 * 1000,
       })
       .send({ message: 'Авторизация успешна' });
-  } catch (err) {
+  } catch (err: unknown) {
     next(new UnauthorizedError('Неправильные почта или пароль'));
   }
 };
@@ -121,8 +125,8 @@ export const updateProfile = async (
     }
 
     return res.send(user);
-  } catch (err: any) {
-    if (err.name === 'ValidationError') {
+  } catch (err: unknown) {
+    if (err instanceof Error && err.name === 'ValidationError') {
       return next(new BadRequestError('Некорректные данные при обновлении профиля'));
     }
     return next(err);
@@ -148,8 +152,8 @@ export const updateAvatar = async (
     }
 
     return res.send(user);
-  } catch (err: any) {
-    if (err.name === 'ValidationError') {
+  } catch (err: unknown) {
+    if (err instanceof Error && err.name === 'ValidationError') {
       return next(new BadRequestError('Некорректные данные при обновлении аватара'));
     }
     return next(err);
